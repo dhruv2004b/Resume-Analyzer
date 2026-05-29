@@ -1,20 +1,17 @@
 """
 controllers/ai_service.py
 ─────────────────────────
-All AI business logic using Ollama Local AI.
+All AI business logic using Groq Cloud API.
 """
 
 import os
 import streamlit as st
+from groq import Groq
 
-try:
-    import ollama
-    _OLLAMA_AVAILABLE = True
-except ModuleNotFoundError:
-    ollama = None
-    _OLLAMA_AVAILABLE = False
+# ── Config ───────────────────────────────────────────────────────────────────
 
-MODEL_NAME = os.environ.get("OLLAMA_MODEL", "llama3")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+MODEL_NAME = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 _SYSTEM_PROMPT = """
 You are an elite ATS (Applicant Tracking System) Resume Analyzer, 
@@ -37,28 +34,36 @@ You never hallucinate skills or experience not present in the resume.
 # ── Low-level AI call ────────────────────────────────────────────────────────
 
 def ask_ai(prompt: str) -> str:
-    if not _OLLAMA_AVAILABLE:
+    if not GROQ_API_KEY:
         st.error(
-            "❌ The Ollama Python package is not installed. "
-            "Install it with `pip install ollama` and restart the app."
+            "❌ GROQ_API_KEY is not set. "
+            "Add it to your environment variables or .env file and restart the app."
         )
         return "AI response generation failed."
 
     try:
-        st.info("🤖 Ollama Local AI is analyzing your resume…")
-        response = ollama.chat(
+        st.info("🤖 Groq AI is analyzing your resume…")
+
+        client = Groq(api_key=GROQ_API_KEY)
+        response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user",   "content": prompt},
             ],
+            temperature=0.3,      # Lower = more consistent JSON output
+            max_tokens=4096,
         )
+
         st.success("✅ Analysis complete!")
-        return response["message"]["content"]
+        return response.choices[0].message.content
+
     except Exception as exc:
-        st.error(f"❌ Ollama Error: {exc}")
+        st.error(f"❌ Groq API Error: {exc}")
         return "AI response generation failed."
 
+
+# ── rest of file unchanged (general_analysis, company_analysis, etc.) ────────
 
 # ── General Resume Analysis ──────────────────────────────────────────────────
 
